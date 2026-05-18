@@ -5,15 +5,10 @@ const dotenv = require('dotenv')
 dotenv.config()
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 const uri = process.env.MONGO_URI
 
 app.use(cors())
-
-
-
-
-
 
 
 const client = new MongoClient(uri, {
@@ -27,10 +22,27 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     await client.connect();
-    // await client.db("admin").command({ ping: 1 });
+    const db = client.db("driverfleetdb")
+    const carCollection = db.collection("cars")
+
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
-  } finally {
-    // await client.close();
+
+    app.get('/cars', async (req, res) => {
+      const carData = carCollection.find();
+      const result = await carData.toArray();
+      res.send(result)
+    })
+
+    app.get('/cars/:carsId', async (req, res) => {
+      const {carsId} = req.params
+      const query = {_id: new ObjectId(carsId)}
+      const car = await carCollection.findOne(query)
+
+      res.send(car)
+    })
+
+  } catch (error) {
+    console.error("MongoDB connection error:", error.message);
   }
 }
 run().catch(console.dir);
