@@ -112,7 +112,34 @@ async function run() {
       res.send(result);
     });
 
+    app.delete('/cars/:carId', logger, verifyToken, async (req, res) => {
+      const { carId } = req.params;
 
+      if (!ObjectId.isValid(carId)) {
+        return res.status(400).json({ message: 'Invalid car ID' });
+      }
+
+      const car = await carCollection.findOne({ _id: new ObjectId(carId) });
+      if (!car) {
+        return res.status(404).json({ message: 'Car not found' });
+      }
+      if (car.ownerId !== req.user.sub) {
+        return res.status(403).json({ message: 'Car does not belong to you' });
+      }
+
+      const result = await carCollection.deleteOne({ _id: new ObjectId(carId) });
+      res.send(result);
+    });
+
+    app.get('/my-cars/:userId', logger, verifyToken, async (req, res) => {
+      const { userId } = req.params;
+
+      if (userId !== req.user.sub) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      const result = await carCollection.find({ ownerId: userId }).toArray();
+      res.send(result);
+    });
 
 
   } catch (error) {
