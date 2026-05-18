@@ -71,6 +71,50 @@ async function run() {
       res.send(result)
     })
 
+     app.post('/cars', logger, verifyToken, async (req, res) => {
+      const carData = req.body;
+      const newCar = {
+        ...carData,
+        ownerEmail: req.user.email,
+        ownerId: req.user.sub,      
+        createdAt: new Date(),
+        bookingCount: 0,
+      };
+      const result = await carCollection.insertOne(newCar);
+      res.send(result);
+    });
+
+    app.patch('/cars/:carId', logger, verifyToken, async (req, res) => {
+      const { carId } = req.params;
+      const updateData = req.body;
+
+      if (!ObjectId.isValid(carId)) {
+        return res.status(400).json({ message: 'Invalid car ID' });
+      }
+
+      const car = await carCollection.findOne({ _id: new ObjectId(carId) });
+      if (!car) {
+        return res.status(404).json({ message: 'Car not found' });
+      }
+      if (car.ownerId !== req.user.sub) {
+        return res.status(403).json({ message: 'Car does not belong to you' });
+      }
+
+      const result = await carCollection.updateOne(
+        { _id: new ObjectId(carId) },
+        {
+          $set: {
+            ...updateData,
+            updatedAt: new Date(),
+          },
+        }
+      );
+      res.send(result);
+    });
+
+
+
+
   } catch (error) {
     console.error("MongoDB connection error:", error.message);
   }
