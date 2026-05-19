@@ -140,7 +140,52 @@ async function run() {
       const result = await carCollection.find({ ownerId: userId }).toArray();
       res.send(result);
     });
+    app.post('/bookings', logger, verifyToken, async (req, res) => {
+      const bookingData = req.body;
+      const { carId } = bookingData;
 
+      if (!ObjectId.isValid(carId)) {
+        return res.status(400).json({ message: 'Invalid car ID' });
+      }
+
+      const car = await carCollection.findOne({ _id: new ObjectId(carId) });
+      if (!car) {
+        return res.status(404).json({ message: 'Car not found' });
+      }
+      if (car.availabilityStatus !== 'Available') {
+        return res.status(400).json({ message: 'Car is not available for booking' });
+      }
+
+      const newBooking = {
+        ...bookingData,
+        userId: req.user.sub,
+        userEmail: req.user.email,
+        bookedAt: new Date(),
+        status: 'Confirmed',
+      };
+      const result = await bookingCollection.insertOne(newBooking);
+
+      await carCollection.updateOne(
+        { _id: new ObjectId(carId) },
+        {
+          $set: { availabilityStatus: 'Booked' },
+          $inc: { bookingCount: 1 }, 
+        }
+      );
+
+      res.send(result);
+    });
+
+    app.get('/bookings/:userId', logger, verifyToken, async (req, res) => {
+      const { userId } = req.params;
+
+      if (userId !== req.user.sub) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+
+      const result = await bookingCollection.find({ userId }).toArray();
+      res.send(result);
+    });
 
   } catch (error) {
     console.error("MongoDB connection error:", error.message);
