@@ -187,6 +187,31 @@ async function run() {
       res.send(result);
     });
 
+    app.delete('/bookings/:bookingId', logger, verifyToken, async (req, res) => {
+          const { bookingId } = req.params;
+          if (!ObjectId.isValid(bookingId)) {
+            return res.status(400).json({ message: 'Invalid booking ID' });
+          }
+
+          const booking = await bookingCollection.findOne({ _id: new ObjectId(bookingId) });
+          if (!booking) {
+            return res.status(404).json({ message: 'Booking not found' });
+          }
+
+          if (booking.userId !== req.user.sub) {
+            return res.status(403).json({ message: 'You are not allowed' });
+          }
+          const result = await bookingCollection.deleteOne({ _id: new ObjectId(bookingId) });
+
+          await carCollection.updateOne(
+            { _id: new ObjectId(booking.carId) },
+            { $set: { availabilityStatus: 'Available' } }
+          );
+
+          res.send(result);
+    });
+
+
   } catch (error) {
     console.error("MongoDB connection error:", error.message);
   }
