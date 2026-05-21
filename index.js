@@ -2,6 +2,7 @@ const express = require('express');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const cors = require('cors')
 const dotenv = require('dotenv')
+const { createRemoteJWKSet, jwtVerify } = require('jose-cjs');
 dotenv.config()
 
 const app = express();
@@ -48,28 +49,44 @@ async function run() {
     await client.connect();
     const db = client.db("driverfleetdb")
     const carCollection = db.collection("cars")
+    const bookingCollection = db.collection('bookings');
 
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
-    app.get('/cars', async (req, res) => {
-      const carData = carCollection.find();
-      const result = await carData.toArray();
-      res.send(result)
-    })
+    app.get('/cars', logger, async (req, res) => {
+      const { search, type } = req.query; 
+      let query = {};
+      if (search) {
+        query.carName = { $regex: search, $options: 'i' };
+      }
+      if (type) {
+        query.carType = type;
+      }
+      const result = await carCollection.find(query).toArray();
+      res.send(result);
+    });
 
-    app.get('/cars/:carsId', async (req, res) => {
-      const {carsId} = req.params
-      const query = {_id: new ObjectId(carsId)}
-      const car = await carCollection.findOne(query)
+    app.get('/cars/:carId', logger, async (req, res) => {
+      const { carId } = req.params;
 
-      res.send(car)
-    })
+      if (!ObjectId.isValid(carId)) {
+        return res.status(400).json({ message: 'Invalid car ID' });
+      }
 
-    app.get('/featured', async(req,res) => {
-      const featuredCars = carCollection.find().limit(6)
-      const result = await featuredCars.toArray()
-      res.send(result)
-    })
+      const result = await carCollection.findOne({ _id: new ObjectId(carId) });
+      if (!result) {
+        return res.status(404).json({ message: 'Car not found' });
+      }
+      res.send(result);
+    });
+
+    app.get('/featured-cars', logger, async (req, res) => {
+      const result = await carCollection
+        .find({ availabilityStatus: 'Available' })
+        .limit(6)
+        .toArray();
+      res.send(result);
+    });
 
      app.post('/cars', logger, verifyToken, async (req, res) => {
       const carData = req.body;
@@ -220,7 +237,7 @@ run().catch(console.dir);
 
 
 app.get('/', (req, res) => {
-  res.send('Hello World!');
+  res.send('Driver Fleet API is running!');
 });
 app.listen(port, () => {
   console.log(`Example app listening at http://localhost:${port}`);
