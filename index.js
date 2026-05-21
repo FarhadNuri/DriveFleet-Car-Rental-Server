@@ -9,7 +9,15 @@ const app = express();
 const port = process.env.PORT || 5000;
 const uri = process.env.MONGO_URI;
 
-app.use(cors());
+
+app.use(cors({
+  origin: [
+    'https://drive-fleet-car-rental-client.vercel.app',
+    'http://localhost:3000'
+  ],
+  credentials: true
+}));
+
 app.use(express.json());
 
 const client = new MongoClient(uri, {
