@@ -262,6 +262,12 @@ run().catch(console.dir);
 app.get("/", (req, res) => {
   res.send("Driver Fleet API is running!");
 });
-app.listen(port, () => {
-  console.log(`Example app listening at http://localhost:${port}`);
-});
+
+
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`Example app listening at http://localhost:${port}`);
+  });
+}
+
+module.exports = app;
